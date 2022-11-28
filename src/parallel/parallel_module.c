@@ -18,8 +18,9 @@ void* thr_func(void* input) {
     while (numPacketsProcessed < thr_args->T) {
         volatile Packet_t* packet = malloc(sizeof(volatile Packet_t));
 
-        while (true) {
-            if (dequeue(thread_queue, packet, false) == SUCCESS) {
+        // lock here prevents concurrent access
+        while (true) {  // while true loop here prevents dequeuing from an empty queue
+            if (dequeue(thread_queue, packet) == SUCCESS) {
                 break;
             }
         };
@@ -39,6 +40,12 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
     queue_t* queues[args->numSources];
     for (int i = 0; i < args->numSources; i++) {
         queues[i] = create_queue();
+
+        if (args->lock_type == '3') {
+            queues[i]->lock->locktype = TAS_LOCK_TYPE;
+        } else if (args->lock_type == '4') {
+            queues[i]->lock->locktype = TTAS_LOCK_TYPE;
+        }
     }
 
     /* spawn n - 1 worker threads */
@@ -63,16 +70,14 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
         for (int sourceNum = 0; sourceNum < args->numSources; sourceNum++) {
             volatile Packet_t* packet = NULL;
 
-            if (args->distribution == 'C') {
-                packet = getConstantPacket(packetSource, sourceNum);
-            } else if (args->distribution == 'U') {
+            if (args->distribution == 'U') {
                 packet = getUniformPacket(packetSource, sourceNum);
             } else if (args->distribution == 'E') {
                 packet = getExponentialPacket(packetSource, sourceNum);
             }
 
-            while (true) {
-                if (enqueue(queues[sourceNum], packet, false) == SUCCESS) {
+            while (true) {  // this while loop prevents us from enqueueing to a full queue
+                if (enqueue(queues[sourceNum], packet) == SUCCESS) {
                     break;
                 }
             };
@@ -89,6 +94,7 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
 
     /* Free memory */
     for (int i = 0; i < args->numSources; i++) {
+        free(queues[i]->lock);
         free(queues[i]);
     }
 

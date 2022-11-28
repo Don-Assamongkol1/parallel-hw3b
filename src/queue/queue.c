@@ -11,13 +11,12 @@ queue_t* create_queue() {
     // the Packet_t*'s we get from getUniformPacket already point to a
     // heap-allocated (malloc'd) memory address
 
+    lock_init(queue->lock);  // initialize this queue's lock
+
     return queue;
 }
 
-int enqueue(queue_t* queue, volatile Packet_t* packet, bool includeSlowDown) {
-    if (includeSlowDown) {
-        usleep(SLEEP_DURATION);
-    }
+int enqueue(queue_t* queue, volatile Packet_t* packet) {
     if ((queue->tail - queue->head) == queue->depth) {
         return FAILURE;
     }
@@ -27,10 +26,7 @@ int enqueue(queue_t* queue, volatile Packet_t* packet, bool includeSlowDown) {
     return SUCCESS;
 }
 
-int dequeue(queue_t* queue, volatile Packet_t* packet, bool includeSlowDown) {
-    if (includeSlowDown) {
-        usleep(SLEEP_DURATION);
-    }
+int dequeue(queue_t* queue, volatile Packet_t* packet) {
     if ((queue->tail - queue->head) == 0) {
         return FAILURE;
     }

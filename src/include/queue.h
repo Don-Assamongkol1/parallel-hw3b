@@ -1,9 +1,10 @@
-#include "types.h"
 #include <unistd.h>
+
+#include "lock.h"
+#include "types.h"
 
 queue_t* create_queue();  // returns a malloc'd queue
 
-int enqueue(queue_t* queue, volatile Packet_t* packet, bool includeSlowDown);
+int enqueue(queue_t* queue, volatile Packet_t* packet);
 
-int dequeue(queue_t* queue, volatile Packet_t* packet, bool includeSlowDown);
-// packet is a write-out parameter
+int dequeue(queue_t* queue, volatile Packet_t* packet);  // packet is a write-out parameter
