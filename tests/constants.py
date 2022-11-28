@@ -1,2 +1,12 @@
 worker_strategies = ['L', 'H', 'A']
 lock_types = ['3', '4']  # 3 for TAS, 4 for TTAS
+SERIAL_EXECUTABLE = "./serial_packet"
+PARALLEL_EXECUTABLE = "./parallel_packet"
+
+CONSTANT_RERUN_COUNT = 1
+UNIFORM_RERUN_COUNT = 1
+# UNIFORM_RERUN_COUNT = 5
+EXPONENTIAL_RERUN_COUNT = 12
+
+UNIFORM_DISTRIBUTION = 'U'
+EXPONENTIAL_DISTRIBUTION = 'E'

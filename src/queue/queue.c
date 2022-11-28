@@ -11,7 +11,8 @@ queue_t* create_queue() {
     // the Packet_t*'s we get from getUniformPacket already point to a
     // heap-allocated (malloc'd) memory address
 
-    lock_init(queue->lock);  // initialize this queue's lock
+    queue->lock = malloc(sizeof(lock_t));  // reserve memory for this queue's lock
+    lock_init(queue->lock);                // initialize this queue's lock
 
     return queue;
 }
@@ -34,4 +35,11 @@ int dequeue(queue_t* queue, volatile Packet_t* packet) {
     __sync_synchronize();  // prevent memory hoisting for correctness
     queue->head += 1;
     return SUCCESS;
+}
+
+bool queue_is_empty(queue_t* queue) {
+    if ((queue->tail - queue->head) == 0) {
+        return true;
+    }
+    return false;
 }

@@ -8,7 +8,7 @@
 #include "types.h"
 
 int main(int argc, char* argv[]) {
-    if (argc != 6) {
+    if (argc != 8) {
         printf("Error! Expected more arguments \n");
         return 0;
     }
@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     args->lock_type = argv[6][0];                             // '3' for TAS, '4' for TTAS
     args->strategy = argv[7][0];                              // ‘L’, ‘H’, ‘A’
 
-    args->numSources = args->n - 1;
+    args->numSources = args->n;  // This changed from last time!
 
     if (args->distribution != 'U' && args->distribution != 'E') {
         printf("Error! distribution should be either 'U' or 'E' \n ");
@@ -50,6 +50,15 @@ int main(int argc, char* argv[]) {
 
     // single-threaded: have our thread grab T packets from each source and compute their checksum
     run_parallel(packetSource, checksums_array, args);
+
+    // do quick sanity check on checksums array
+    // printf("\n---%ld \n---%ld\n", checksums_array[0], checksums_array[args->numSources - 1]);
+
+    // long int total_checksum = 0;
+    // for (int i = 0; i < args->numSources; i++) {
+    //     total_checksum += checksums_array[i];
+    // }
+    // printf("---total checksum: %ld\n", total_checksum);
 
     // clean up
     deletePacketSource(packetSource);

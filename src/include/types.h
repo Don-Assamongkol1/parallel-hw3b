@@ -10,7 +10,7 @@
 #include "packetsource.h"
 
 /******************* DEFINITIONS FROM PROJECT 3a **********************/
-#define DEPTH 32
+#define DEPTH 8
 #define SLEEP_DURATION 100  // to make queue full/empty for stress testing
 // this is in microseconds i.e. 10^-6
 
@@ -69,14 +69,15 @@ typedef struct {  // our wrapper class
 
 /******************* DEFINITIONS FROM PROJECT 2 **********************/
 typedef struct {
-    int n;
     int T;
+    int n;
     int W;
-    int trial_num;
     char distribution;
-    int numSources;
-    char lock_type;
-    char strategy;
+    int trial_num;
+    char lock_type;  // '3' or '4'
+    char strategy;   // 'L', 'H', or 'A'
+
+    int numSources;  // derived field from the passed in cmd line args
 } cmd_line_args_t;
 
 typedef struct {
@@ -86,5 +87,7 @@ typedef struct {
     int depth;
     lock_t* lock;
 } queue_t;
+
+/******************* DEFINITIONS FROM PROJECT 3b **********************/
 
 #endif

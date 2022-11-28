@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     args->W = atoi(argv[3]);                                  // expected amount of work per packet—(mean in the code).
     args->distribution = argv[4][0];                          // distribution type either 'U', 'E'
     args->trial_num = atoi(argv[5]);                          // expected amount of work per packet—(mean in the code).
-    args->numSources = args->n - 1;
+    args->numSources = args->n;
 
     if (args->distribution != 'U' && args->distribution != 'E') {
         printf("Error! distribution should be either 'U' or 'E' \n ");

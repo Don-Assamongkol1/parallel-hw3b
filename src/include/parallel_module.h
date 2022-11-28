@@ -1,3 +1,5 @@
+#include <limits.h>
+
 #include "fingerprint.h"
 #include "pthread.h"
 #include "queue.h"
