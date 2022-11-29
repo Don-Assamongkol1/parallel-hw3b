@@ -8,6 +8,7 @@ typedef struct _thread_args_t {
     char strategy;
     int* source_to_num_packets_processed;
     int numSources;
+    long** packetSignatures;
 } thread_args_t;
 
 /* thr_func */
@@ -68,6 +69,7 @@ void* thr_func_awesome(void* input) {
     int* source_to_num_packets_processed = thr_args->source_to_num_packets_processed;
     long* checksums_array = thr_args->checksums_array;
     int numSources = thr_args->numSources;
+    long** packetSignatures = thr_args->packetSignatures;
 
     while (true) {
         volatile Packet_t* packet = malloc(sizeof(volatile Packet_t));
@@ -91,6 +93,9 @@ void* thr_func_awesome(void* input) {
                 long int packet_checksum = getFingerprint(packet->iterations, packet->seed);
                 lock_lock(queues[home_idx]->lock, thread_idx);  // conceptually we want to lock access to checksums_array[thread_idx]. We're using the queue's lock to doubly represent this
                 checksums_array[home_idx] += packet_checksum;
+
+                packetSignatures[home_idx][source_to_num_packets_processed[home_idx]] = packet_checksum;
+
                 lock_unlock(queues[home_idx]->lock, thread_idx);
             }
         }
@@ -130,7 +135,10 @@ void* thr_func_awesome(void* input) {
                 if (got_a_packet) {
                     long int packet_checksum = getFingerprint(packet->iterations, packet->seed);
                     lock_lock(queues[source_idx_to_help]->lock, thread_idx);  // conceptually we want to lock access to checksums_array[thread_idx]. We're using the queue's lock to doubly represent this
+
                     checksums_array[source_idx_to_help] += packet_checksum;
+                    packetSignatures[source_idx_to_help][source_to_num_packets_processed[source_idx_to_help]] = packet_checksum;
+
                     lock_unlock(queues[source_idx_to_help]->lock, thread_idx);
                 }
             }
@@ -178,10 +186,14 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
     thread_args_t thr_args[numThreads];  // must memory allocate the arg to each thread
     pthread_t thread_ids[numThreads];    // keep track of our threads
 
-    // bool packetProcessed[args->numSources][args->T]; // variable to store which packets have been processed; should catch if any packets are dropped
-    // for (int i = 0; i < args->numSources; i++) {
-    //     for (int j = 0; j < args->)
-    // }
+    /* Define this variable for error checking*/
+    long int** packetSignatures = malloc(args->numSources * sizeof(long int*));
+    for (int i = 0; i < args->numSources; i++) {
+        packetSignatures[i] = malloc(args->T * sizeof(long int));
+        for (int j = 0; j < args->T; j++) {
+            packetSignatures[i][j] = -1;
+        }
+    }
 
     for (int i = 0; i < numThreads; i++) {
         thr_args[i].thread_idx = i;
@@ -189,8 +201,10 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
         thr_args[i].queues = queues;
         thr_args[i].T = args->T;
         thr_args[i].strategy = args->strategy;
-        thr_args[i].source_to_num_packets_processed = source_to_num_packets_processed;
         thr_args[i].numSources = args->numSources;
+
+        thr_args[i].source_to_num_packets_processed = source_to_num_packets_processed;
+        thr_args[i].packetSignatures = packetSignatures;
 
         // Spawn different thread functions based on our strategy; makes the thread func easier to read
         if (args->strategy == 'A') {
@@ -224,7 +238,6 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
             };
         }
     }
-    // printf("done enqueueing all packets from dispatcher\n");
 
     /* Join our threads */
     for (int i = 0; i < numThreads; i++) {
@@ -235,10 +248,32 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
     }
 
     /* Error checking: have we processed all packets from every source? */
-    printf("sanity check: have we processed all packets from every source? \n");
+    printf("\nsanity check: have we processed all packets from every source? \n");
     for (int i = 0; i < args->numSources; i++) {
         printf("    source_to_num_packets_processed[i]=%d\n", source_to_num_packets_processed[i]);
     }
+
+    /*********** ERROR checking : Write to file **********/
+    FILE* output_file = fopen("test_output", "a");
+    if (output_file == NULL) {
+        printf("Error opening output file");
+        exit(1);
+    }
+    char buffer[MAX_STRING_LENGTH];  // used to format ints to string
+
+    for (int i = 0; i < args->numSources; i++) {
+        for (int j = 0; j < args->T; j++) {
+            char source_checksum[MAX_LINE_LENGTH] = "";
+            sprintf(buffer, "%ld ", packetSignatures[i][j]);  // used to format int (pos/neg) to string
+            strncat(source_checksum, buffer, MAX_STRING_LENGTH);
+
+            fputs(source_checksum, output_file);
+            fputs("\n", output_file);
+        }
+        printf("next source\n");
+    }
+    fclose(output_file);
+    /*********** END OF ERROR CHECKING **********/
 
     /* Free memory for the queues and locks we used */
     for (int i = 0; i < args->numSources; i++) {
