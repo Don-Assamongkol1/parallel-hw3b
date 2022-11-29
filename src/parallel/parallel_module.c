@@ -62,8 +62,9 @@ void* thr_func_awesome(void* input) {
     /* typecast arguments */
     thread_args_t* thr_args = (thread_args_t*)input;
     int thread_idx = thr_args->thread_idx;
+    int home_idx = thread_idx;
     queue_t** queues = thr_args->queues;
-    queue_t* home_queue = queues[thread_idx];
+
     int* source_to_num_packets_processed = thr_args->source_to_num_packets_processed;
     long* checksums_array = thr_args->checksums_array;
     int numSources = thr_args->numSources;
@@ -71,28 +72,31 @@ void* thr_func_awesome(void* input) {
     while (true) {
         volatile Packet_t* packet = malloc(sizeof(volatile Packet_t));
 
-        if (!queue_is_empty(home_queue)) {  // check if home queue can be worked on
-            bool got_a_packet = false;
+        if (!queue_is_empty(queues[home_idx])) {  // check if home queue can be worked on
+            bool got_a_packet = false;            // variable: did this thread manage to get a packet to work on?
 
-            lock_lock(home_queue->lock, thread_idx);
-            if (!queue_is_empty(home_queue)) {
-                source_to_num_packets_processed[thread_idx] += 1;  // indicate that we're going to process a packet from the source whose idx equals thread_idx
+            lock_lock(queues[home_idx]->lock, thread_idx);
+            if (!queue_is_empty(queues[home_idx])) {
+                source_to_num_packets_processed[home_idx] += 1;  // indicate that we're going to process a packet from the source whose idx equals thread_idx
                 got_a_packet = true;
-                if (dequeue(home_queue, packet) == FAILURE) {
-                    printf("you should never see this 1 \n");  // bc we already checked that it's non empty and we've acquired the lock, so no other thread should've been able to dequeue from this queue
-                    pthread_exit(NULL);
+                if (dequeue(queues[home_idx], packet) == FAILURE) {
+                    printf("you should never see this 1 \n");  // if we've locked the queue and then checked that it's non-empty,
+                    // pthread_exit(NULL);                        // then between then and now, no thread should've dequeued from this queue
+                    got_a_packet = false;
                 }
             }
-            lock_unlock(home_queue->lock, thread_idx);
+            lock_unlock(queues[home_idx]->lock, thread_idx);
 
             if (got_a_packet) {
-                checksums_array[thread_idx] += getFingerprint(packet->iterations, packet->seed);
+                long int packet_checksum = getFingerprint(packet->iterations, packet->seed);
+                lock_lock(queues[home_idx]->lock, thread_idx);  // conceptually we want to lock access to checksums_array[thread_idx]. We're using the queue's lock to doubly represent this
+                checksums_array[home_idx] += packet_checksum;
+                lock_unlock(queues[home_idx]->lock, thread_idx);
             }
         }
 
-        else {
-            /* find a queue to help */
-            int min_packets_processed = INT_MAX;
+        else {                                             /* find a queue to help */
+            int min_packets_processed = thr_args->T + 10;  // the number of packets processed per source will never be this much
             int source_idx_to_help = -1;
             for (int i = 0; i < numSources; i++) {
                 if (source_to_num_packets_processed[i] < min_packets_processed) {
@@ -101,7 +105,7 @@ void* thr_func_awesome(void* input) {
                 }
             }
 
-            if (min_packets_processed == thr_args->T) {  // the most behind source has had T packets processed already
+            if (min_packets_processed == thr_args->T) {  // the most behind source has had T packets processed (or in the process of being processed) already, which means this worker thread can't help --> terminate
                 pthread_exit(NULL);
                 // break;
             }
@@ -117,13 +121,17 @@ void* thr_func_awesome(void* input) {
                     got_a_packet = true;
                     if (dequeue(queue_to_help, packet) == FAILURE) {
                         printf("you should never see this 2 \n");  // bc we already checked that its non empty and we have the lock
-                        pthread_exit(NULL);
+                        // pthread_exit(NULL);
+                        got_a_packet = false;
                     }
                 }
                 lock_unlock(queue_to_help->lock, thread_idx);
 
                 if (got_a_packet) {
-                    checksums_array[source_idx_to_help] += getFingerprint(packet->iterations, packet->seed);
+                    long int packet_checksum = getFingerprint(packet->iterations, packet->seed);
+                    lock_lock(queues[source_idx_to_help]->lock, thread_idx);  // conceptually we want to lock access to checksums_array[thread_idx]. We're using the queue's lock to doubly represent this
+                    checksums_array[source_idx_to_help] += packet_checksum;
+                    lock_unlock(queues[source_idx_to_help]->lock, thread_idx);
                 }
             }
         }
@@ -165,10 +173,15 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
         source_to_num_packets_processed[i] = 0;
     }
 
-    /* spawn n - 1 worker threads */
+    /* spawn n worker threads. Note in prev assignment it was n - 1 worker threads */
     int numThreads = args->numSources;
     thread_args_t thr_args[numThreads];  // must memory allocate the arg to each thread
     pthread_t thread_ids[numThreads];    // keep track of our threads
+
+    // bool packetProcessed[args->numSources][args->T]; // variable to store which packets have been processed; should catch if any packets are dropped
+    // for (int i = 0; i < args->numSources; i++) {
+    //     for (int j = 0; j < args->)
+    // }
 
     for (int i = 0; i < numThreads; i++) {
         thr_args[i].thread_idx = i;
@@ -219,6 +232,12 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
             printf("error joining thread!\n");
             return 1;
         }
+    }
+
+    /* Error checking: have we processed all packets from every source? */
+    printf("sanity check: have we processed all packets from every source? \n");
+    for (int i = 0; i < args->numSources; i++) {
+        printf("    source_to_num_packets_processed[i]=%d\n", source_to_num_packets_processed[i]);
     }
 
     /* Free memory for the queues and locks we used */

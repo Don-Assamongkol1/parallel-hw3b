@@ -9,4 +9,8 @@ serial_packet: $(SRCS) ./src/include/* ./src/serial/*
 parallel_packet: $(SRCS) ./src/include/* ./src/parallel/* ./src/queue/* 
 	gcc $(CFLAGS) -o parallel_packet $(SRCS_PARALLEL_PACKET) $(LM_FLAG)
 
+clean:
+	rm serial_packet parallel_packet
 
+all:
+	make serial_packet parallel_packet
