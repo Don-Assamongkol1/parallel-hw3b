@@ -11,10 +11,7 @@ queue_t* create_queue() {
     // the Packet_t*'s we get from getUniformPacket already point to a
     // heap-allocated (malloc'd) memory address
 
-    queue->lock = malloc(sizeof(lock_t));  // reserve memory for this queue's lock
-    lock_init(queue->lock);                // initialize this queue's lock
-
-    return queue;
+    return queue;  // return heap-allocated (malloc'd) variable that is our queue
 }
 
 int enqueue(queue_t* queue, volatile Packet_t* packet) {

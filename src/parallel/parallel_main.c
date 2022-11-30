@@ -41,6 +41,7 @@ int main(int argc, char* argv[]) {
 
     // create our packet source
     PacketSource_t* packetSource = createPacketSource((long)args->W, args->numSources, (short)args->trial_num);
+    printf("trial_num: %d\n", args->trial_num);
 
     // create our checksums array, where we store the checksum for each source
     long checksums_array[args->numSources];
@@ -51,14 +52,14 @@ int main(int argc, char* argv[]) {
     // single-threaded: have our thread grab T packets from each source and compute their checksum
     run_parallel(packetSource, checksums_array, args);
 
-    // do quick sanity check on checksums array
-    printf("\n   %ld\n   %ld\n", checksums_array[0], checksums_array[args->numSources - 1]);
+    // // do quick sanity check on checksums array
+    // printf("\n   %ld\n   %ld\n", checksums_array[0], checksums_array[args->numSources - 1]);
 
-    long int total_checksum = 0;
-    for (int i = 0; i < args->numSources; i++) {
-        total_checksum += checksums_array[i];
-    }
-    printf("---total checksum: %ld\n", total_checksum);
+    // long int total_checksum = 0;
+    // for (int i = 0; i < args->numSources; i++) {
+    //     total_checksum += checksums_array[i];
+    // }
+    // printf("---total checksum: %ld\n", total_checksum);
 
     // clean up
     deletePacketSource(packetSource);

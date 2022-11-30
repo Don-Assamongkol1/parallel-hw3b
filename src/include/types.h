@@ -89,5 +89,9 @@ typedef struct {
 } queue_t;
 
 /******************* DEFINITIONS FROM PROJECT 3b **********************/
+typedef struct {
+    int* array;
+    lock_t** locks;
+} source_to_num_processed_t;
 
 #endif
