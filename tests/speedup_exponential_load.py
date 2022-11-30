@@ -3,13 +3,20 @@ import constants
 
 T = 50000
 
+print("speedup w/ exponential load")
+
+
 # serial execution time
 print("----serial execution times----")
 for W in [1000, 2000, 4000, 8000]:
     print(f"for W={W}")
+    T = constants.W_to_T_mapping[W]
 
     serial_times = []
-    for n in [1, 2, 3, 7]:  # [1, 2, 3, 7, 13, 27]:
+    for n in [1, 2, 3, 7, 13, 27]:
+
+        if n >= 7:
+            T /= 100
 
         trial_num = 0
 
@@ -47,12 +54,18 @@ for W in [1000, 2000, 4000, 8000]:
 print("----parallel execution times----")
 for W in [1000, 2000, 4000, 8000]:
     print(f"for W={W}")
+    T = constants.W_to_T_mapping[W]
+
+
     for strategy_S in ['L', 'H']:
         for locktype_L in constants.lock_types:
 
             print(f"    for (S,L)={(strategy_S, locktype_L)}")
             parallel_times = []
-            for n in [1, 2, 3, 7]:  # [1, 2, 3, 7, 13, 27]:
+            for n in [1, 2, 3, 7, 13, 27]:
+
+                if n >= 7:
+                    T /= 100
 
                 trial_num = 0
                 mean_time = 0
