@@ -1,7 +1,7 @@
 import subprocess
 import constants
 
-T = 50000
+T = 200000
 
 # serial execution time
 print("----serial execution times----")
@@ -9,7 +9,7 @@ for W in [1000, 2000, 4000, 8000]:
     print(f"for W={W}")
 
     serial_times = []
-    for n in [1, 2, 3, 7]:  # [1, 2, 3, 7, 13, 27]:
+    for n in [1, 2, 3, 7, 13, 27]:
 
         trial_num = 0
 

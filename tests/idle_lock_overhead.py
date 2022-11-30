@@ -9,7 +9,7 @@ for lock_type in constants.lock_types:
         # ./parallel_packet
         n = 1
 
-        T = 100000
+        T = 10000000
         # if W >= 200: # tests are slower
             # T = 50000
 
