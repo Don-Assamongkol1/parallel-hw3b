@@ -56,8 +56,6 @@ void* thr_func(void* input) {
 
         numPacketsProcessed += 1;
     }
-    printf("thread %d: %d\n", thread_idx, numPacketsProcessed);
-    printf("thread %d: %ld\n", thread_idx, checksumOfWorker);
 
     pthread_exit(NULL);
 }
@@ -99,7 +97,6 @@ void* thr_func_awesome(void* input) {
                 got_a_packet = true;
                 if (dequeue(queues[home_idx], packet) == FAILURE) {
                     printf("you should never see this 1 \n");  // if we've locked the queue and then checked that it's non-empty,
-                    // pthread_exit(NULL);                        // then between then and now, no thread should've dequeued from this queue
                     got_a_packet = false;
                 }
             }
@@ -120,33 +117,30 @@ void* thr_func_awesome(void* input) {
             /* Loop through to find a non-empty queue to help out */
             int queue_idx_to_help_out = -1;
             for (int i = 0; i < numSources; i++) {
-                if (queue_is_empty(queues[i])) {
+                if (!queue_is_empty(queues[i])) {
                     queue_idx_to_help_out = i;
-                }
-            }
-            queue_t* queue_to_help = queues[queue_idx_to_help_out];
+                    queue_t* queue_to_help = queues[queue_idx_to_help_out];
+                    bool got_a_packet = false;
 
-            if (!queue_is_empty(queue_to_help)) {  // check if this queue still needs help
-                bool got_a_packet = false;
-
-                lock_lock(queue_to_help->lock, thread_idx);
-                if (!queue_is_empty(queue_to_help)) {
-                    got_a_packet = true;
-                    if (dequeue(queue_to_help, packet) == FAILURE) {
-                        printf("you should never see this 2 \n");  // bc we already checked that its non empty and we have the lock
-                        // pthread_exit(NULL);
-                        got_a_packet = false;
+                    lock_lock(queue_to_help->lock, thread_idx);
+                    if (!queue_is_empty(queue_to_help)) {
+                        got_a_packet = true;
+                        if (dequeue(queue_to_help, packet) == FAILURE) {
+                            printf("you should never see this 2 \n");  // bc we already checked that its non empty and we have the lock
+                            // pthread_exit(NULL);
+                            got_a_packet = false;
+                        }
                     }
-                }
-                lock_unlock(queue_to_help->lock, thread_idx);
+                    lock_unlock(queue_to_help->lock, thread_idx);
 
-                if (got_a_packet) {
-                    long int packet_checksum = getFingerprint(packet->iterations, packet->seed);
+                    if (got_a_packet) {
+                        long int packet_checksum = getFingerprint(packet->iterations, packet->seed);
 
-                    lock_lock(counter_lock, thread_idx);  // conceptually we want to lock access to checksums_array[thread_idx]. We're using the queue's lock to doubly represent this
-                    *packets_processed_counter += 1;
-                    *total_checksum += packet_checksum;
-                    lock_unlock(counter_lock, thread_idx);
+                        lock_lock(counter_lock, thread_idx);  // conceptually we want to lock access to checksums_array[thread_idx]. We're using the queue's lock to doubly represent this
+                        *packets_processed_counter += 1;
+                        *total_checksum += packet_checksum;
+                        lock_unlock(counter_lock, thread_idx);
+                    }
                 }
             }
         }
@@ -171,8 +165,6 @@ void* thr_func_awesome(void* input) {
  *
  */
 int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_args_t* args) {
-    StopWatch_t* stopwatch = malloc(sizeof(StopWatch_t));
-    startTimer(stopwatch);
 
     /* Create numSources many queues + locks associated with those queues */
     queue_t* queues[args->numSources];
@@ -201,6 +193,10 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
 
     /* Define our total checksum */
     long int total_checksum = 0;
+
+    /* Start our timer */
+    StopWatch_t* stopwatch = malloc(sizeof(StopWatch_t));
+    startTimer(stopwatch);
 
     /* spawn n worker threads. Note in prev assignment it was n - 1 worker threads */
     int numThreads = args->numSources;
@@ -269,11 +265,12 @@ int run_parallel(PacketSource_t* packetSource, long* checksums_array, cmd_line_a
 
     stopTimer(stopwatch);
     double elapsed_time = getElapsedTime(stopwatch);
+    printf("total checksum=%ld\n", total_checksum);
     printf("elapsed_time: %f\n", elapsed_time);
-    free(stopwatch);
 
     /* Print total checksum for correctness */
-    printf("total checksum: %ld\n", total_checksum);
+
+    free(stopwatch);
 
     return EXIT_SUCCESS;
 }

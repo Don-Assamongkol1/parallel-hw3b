@@ -8,7 +8,10 @@ for lock_type in constants.lock_types:
         # run w/ uniformly distributed packets
         # ./parallel_packet
         n = 1
-        T = 5000000
+
+        T = 100000
+        # if W >= 200: # tests are slower
+            # T = 50000
 
         trial_num = 0
 
@@ -17,6 +20,21 @@ for lock_type in constants.lock_types:
         mean_HomeQueueStrategy_time = 0
 
         for _ in range(constants.UNIFORM_RERUN_COUNT):
+            rv_HomeQueueStrategy = subprocess.run(
+                [
+                    constants.PARALLEL_EXECUTABLE,
+                    str(T),
+                    str(n),
+                    str(W),
+                    constants.UNIFORM_DISTRIBUTION,
+                    str(trial_num),
+                    lock_type,
+                    'H'
+                ],
+                capture_output=True,
+                text=True,
+            )
+
             rv_LockFreeStrategy = subprocess.run(
                 [
                     constants.PARALLEL_EXECUTABLE,
@@ -34,20 +52,7 @@ for lock_type in constants.lock_types:
             LockFreeStrategy_time = float(rv_LockFreeStrategy.stdout.split(":")[-1].strip())
             mean_LockFreeStrategy_time += LockFreeStrategy_time
 
-            rv_HomeQueueStrategy = subprocess.run(
-                [
-                    constants.PARALLEL_EXECUTABLE,
-                    str(T),
-                    str(n),
-                    str(W),
-                    constants.UNIFORM_DISTRIBUTION,
-                    str(trial_num),
-                    lock_type,
-                    'H'
-                ],
-                capture_output=True,
-                text=True,
-            )
+
             HomeQueueStrategy_time = float(rv_HomeQueueStrategy.stdout.split(":")[-1].strip())
             mean_HomeQueueStrategy_time += HomeQueueStrategy_time
 
